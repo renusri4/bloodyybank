@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LifeBank – Blood Bank Management System</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:#f8f4f0;color:#1a1a1a;min-height:100vh}
+  :root{
+    --red:#C0392B;--red-light:#FDECEA;--red-mid:#E74C3C;
+    --card:#fff;--border:#e8e0d8;--muted:#888;
+    --green:#1a7a4a;--green-light:#e8f5ee;
+    --amber:#b45309;--amber-light:#fef3c7;
+    --surface:#f0ebe4;
+  }
+  input,select,textarea{font-family:inherit}
+  button{font-family:inherit;cursor:pointer}
+  .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
+  .badge-pending{background:var(--amber-light);color:var(--amber)}
+  .badge-approved{background:var(--green-light);color:var(--green)}
+  .badge-rejected{background:var(--red-light);color:var(--red)}
+  input:focus,select:focus{outline:2px solid var(--red);outline-offset:1px}
+  button:active{transform:scale(0.98)}
+  ::-webkit-scrollbar{width:6px}
+  ::-webkit-scrollbar-track{background:#f0ebe4}
+  ::-webkit-scrollbar-thumb{background:#d0c8c0;border-radius:3px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState} = React;
+
+const BLOOD_TYPES = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+
+const initialDonations = [
+  {id:1,name:'Arjun Kumar',bloodType:'O+',units:1,date:'2025-04-10',contact:'9876543210',status:'approved'},
+  {id:2,name:'Priya Nair',bloodType:'A-',units:2,date:'2025-04-15',contact:'9123456780',status:'approved'},
+  {id:3,name:'Ravi Shankar',bloodType:'B+',units:1,date:'2025-04-20',contact:'9988776655',status:'pending'},
+  {id:4,name:'Meena Iyer',bloodType:'AB+',units:1,date:'2025-04-28',contact:'9012345678',status:'pending'},
+  {id:5,name:'Karthik S',bloodType:'O-',units:2,date:'2025-05-01',contact:'9876501234',status:'rejected'},
+];
+
+/* ── AUTH SCREEN ── */
+function AuthScreen({onLogin}) {
+  const [role, setRole] = useState('user');
+  const [name, setName] = useState('');
+  const [pass, setPass] = useState('');
+  const [err, setErr] = useState('');
+
+  function submit() {
+    if (!name.trim()) { setErr('Please enter your name'); return; }
+    if (role === 'admin' && pass !== 'admin123') { setErr('Wrong admin password. Hint: admin123'); return; }
+    setErr('');
+    onLogin({name: name.trim(), role});
+  }
+
+  return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',
+      background:'linear-gradient(135deg,#1a0a0a 0%,#3d0c0c 50%,#1a0a0a 100%)'}}>
+      <div style={{width:440,background:'#fff',borderRadius:24,padding:'52px 44px',boxShadow:'0 40px 80px rgba(0,0,0,0.5)'}}>
+        <div style={{textAlign:'center',marginBottom:40}}>
+          <div style={{width:72,height:72,borderRadius:'50%',background:'var(--red)',display:'flex',
+            alignItems:'center',justifyContent:'center',margin:'0 auto 18px',fontSize:32,
+            boxShadow:'0 8px 24px rgba(192,57,43,0.4)'}}>🩸</div>
+          <h1 style={{fontFamily:'Playfair Display',fontSize:30,color:'var(--red)',marginBottom:6}}>LifeBank</h1>
+          <p style={{color:'var(--muted)',fontSize:14}}>Blood Bank Management System</p>
+        </div>
+
+        <div style={{display:'flex',background:'var(--surface)',borderRadius:14,padding:5,marginBottom:32}}>
+          {['user','admin'].map(r => (
+            <button key={r} onClick={() => {setRole(r); setErr('');}}
+              style={{flex:1,padding:'11px',borderRadius:10,border:'none',
+                background:role===r?'#fff':'transparent',
+                color:role===r?'var(--red)':'var(--muted)',
+                fontWeight:role===r?600:400,fontSize:14,
+                boxShadow:role===r?'0 2px 10px rgba(0,0,0,0.1)':'none',
+                transition:'all .2s'}}>
+              {r==='user' ? '👤 Donor' : '🔑 Admin'}
+            </button>
+          ))}
+        </div>
+
+        <Field label="Your Name">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Enter your full name"
+            onKeyDown={e => e.key==='Enter' && submit()}
+            style={{width:'100%',padding:'13px 16px',border:'1.5px solid var(--border)',
+              borderRadius:10,fontSize:14,outline:'none',transition:'border-color .2s'}}/>
+        </Field>
+
+        {role === 'admin' && (
+          <Field label="Admin Password">
+            <input type="password" value={pass} onChange={e => setPass(e.target.value)}
+              placeholder="Enter admin password"
+              onKeyDown={e => e.key==='Enter' && submit()}
+              style={{width:'100%',padding:'13px 16px',border:'1.5px solid var(--border)',
+                borderRadius:10,fontSize:14,outline:'none'}}/>
+            <p style={{fontSize:11,color:'var(--muted)',marginTop:5}}>Demo password: admin123</p>
+          </Field>
+        )}
+
+        {err && (
+          <div style={{background:'var(--red-light)',border:'1px solid #f5c6c6',borderRadius:10,
+            padding:'10px 14px',marginBottom:16,color:'var(--red)',fontSize:13}}>
+            ⚠️ {err}
+          </div>
+        )}
+
+        <button onClick={submit}
+          style={{width:'100%',padding:'15px',background:'var(--red)',color:'#fff',border:'none',
+            borderRadius:12,fontSize:15,fontWeight:600,letterSpacing:.3,
+            boxShadow:'0 4px 16px rgba(192,57,43,0.35)',transition:'all .2s'}}
+          onMouseOver={e => e.currentTarget.style.opacity = '0.88'}
+          onMouseOut={e => e.currentTarget.style.opacity = '1'}>
+          Sign In →
+        </button>
+
+        <p style={{textAlign:'center',marginTop:20,fontSize:12,color:'var(--muted)'}}>
+          🩸 Every donation saves up to 3 lives
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ── FIELD WRAPPER ── */
+function Field({label, children}) {
+  return (
+    <div style={{marginBottom:20}}>
+      <label style={{fontSize:11,fontWeight:600,color:'var(--muted)',letterSpacing:.8,
+        display:'block',marginBottom:7}}>{label.toUpperCase()}</label>
+      {children}
+    </div>
+  );
+}
+
+/* ── STAT CARD ── */
+function StatCard({icon, label, value, color='var(--red)'}) {
+  const bgMap = {
+    'var(--red)':'var(--red-light)',
+    'var(--green)':'var(--green-light)',
+    'var(--amber)':'var(--amber-light)',
+  };
+  return (
+    <div style={{background:'#fff',borderRadius:16,padding:'22px 24px',
+      border:'1px solid var(--border)',display:'flex',alignItems:'center',gap:18}}>
+      <div style={{width:52,height:52,borderRadius:14,background:bgMap[color]||'var(--red-light)',
+        display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{icon}</div>
+      <div>
+        <p style={{fontSize:12,color:'var(--muted)',fontWeight:500,marginBottom:3}}>{label}</p>
+        <p style={{fontSize:28,fontWeight:700,color,lineHeight:1}}>{value}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ── TOPBAR ── */
+function TopBar({user, onLogout, tabs, activeTab, setTab, pendingCount}) {
+  return (
+    <div style={{background:'#fff',borderBottom:'1px solid var(--border)',padding:'0 32px',
+      display:'flex',alignItems:'center',justifyContent:'space-between',height:64,
+      position:'sticky',top:0,zIndex:100,boxShadow:'0 1px 8px rgba(0,0,0,0.06)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:22}}>🩸</span>
+        <span style={{fontFamily:'Playfair Display',fontSize:20,color:'var(--red)',fontWeight:700}}>LifeBank</span>
+        {user.role === 'admin' && (
+          <span style={{background:'var(--red-light)',color:'var(--red)',fontSize:10,fontWeight:700,
+            padding:'2px 10px',borderRadius:20,marginLeft:4,letterSpacing:.5}}>ADMIN</span>
+        )}
+      </div>
+
+      <div style={{display:'flex',gap:4}}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            style={{padding:'8px 20px',borderRadius:10,border:'none',
+              background:activeTab===t.id?'var(--red-light)':'transparent',
+              color:activeTab===t.id?'var(--red)':'var(--muted)',
+              fontWeight:activeTab===t.id?600:400,fontSize:13,cursor:'pointer',
+              transition:'all .2s',display:'flex',alignItems:'center',gap:6}}>
+            {t.icon} {t.label}
+            {t.id==='requests' && pendingCount > 0 && (
+              <span style={{background:'var(--red)',color:'#fff',borderRadius:'50%',
+                fontSize:10,padding:'1px 6px',fontWeight:700}}>{pendingCount}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <div style={{display:'flex',alignItems:'center',gap:9}}>
+          <div style={{width:36,height:36,borderRadius:'50%',
+            background:user.role==='admin'?'#1a0a0a':'var(--red)',
+            display:'flex',alignItems:'center',justifyContent:'center',
+            color:'#fff',fontWeight:700,fontSize:14}}>
+            {user.name[0].toUpperCase()}
+          </div>
+          <div>
+            <p style={{fontSize:13,fontWeight:600,lineHeight:1.2}}>{user.name}</p>
+            <p style={{fontSize:11,color:'var(--muted)',textTransform:'capitalize'}}>{user.role}</p>
+          </div>
+        </div>
+        <button onClick={onLogout}
+          style={{padding:'7px 16px',background:'transparent',border:'1px solid var(--border)',
+            borderRadius:9,fontSize:12,color:'var(--muted)',cursor:'pointer',transition:'all .2s'}}
+          onMouseOver={e => {e.currentTarget.style.background='var(--red-light)';e.currentTarget.style.color='var(--red)';e.currentTarget.style.borderColor='var(--red-light)'}}
+          onMouseOut={e => {e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--muted)';e.currentTarget.style.borderColor='var(--border)'}}>
+          Logout
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── USER APP ── */
+function UserApp({user, donations, setDonations, onLogout}) {
+  const [tab, setTab] = useState('dashboard');
+  const myDonations = donations.filter(d => d.name === user.name);
+  const [form, setForm] = useState({bloodType:'A+', units:1, date:'', contact:''});
+  const [submitted, setSubmitted] = useState(false);
+  const [formErr, setFormErr] = useState('');
+
+  const stats = {
+    total: myDonations.length,
+    approved: myDonations.filter(d => d.status==='approved').length,
+    pending: myDonations.filter(d => d.status==='pending').length,
+  };
+
+  function submitDonation() {
+    if (!form.date) { setFormErr('Please select a donation date'); return; }
+    if (!form.contact || form.contact.length < 10) { setFormErr('Enter a valid 10-digit contact number'); return; }
+    setFormErr('');
+    const newD = {id:Date.now(), name:user.name, bloodType:form.bloodType,
+      units:Number(form.units), date:form.date, contact:form.contact, status:'pending'};
+    setDonations(prev => [newD, ...prev]);
+    setSubmitted(true);
+    setTimeout(() => {
+      setSubmitted(false);
+      setTab('dashboard');
+      setForm({bloodType:'A+', units:1, date:'', contact:''});
+    }, 2500);
+  }
+
+  const tabs = [
+    {id:'dashboard', icon:'📊', label:'Dashboard'},
+    {id:'register', icon:'🩸', label:'Register Donation'},
+  ];
+
+  return (
+    <div style={{minHeight:'100vh',background:'#f8f4f0'}}>
+      <TopBar user={user} onLogout={onLogout} tabs={tabs} activeTab={tab} setTab={setTab} pendingCount={0}/>
+
+      <div style={{maxWidth:1100,margin:'0 auto',padding:'32px 28px 60px'}}>
+        {tab === 'dashboard' && (
+          <>
+            <div style={{marginBottom:28}}>
+              <h2 style={{fontFamily:'Playfair Display',fontSize:26,marginBottom:6}}>
+                Welcome back, {user.name} 👋
+              </h2>
+              <p style={{color:'var(--muted)',fontSize:14}}>Here's your donation activity overview.</p>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:32}}>
+              <StatCard icon="💉" label="Total Donations" value={stats.total} color="var(--red)"/>
+              <StatCard icon="✅" label="Approved" value={stats.approved} color="var(--green)"/>
+              <StatCard icon="⏳" label="Pending Review" value={stats.pending} color="var(--amber)"/>
+            </div>
+
+            <div style={{background:'#fff',borderRadius:16,border:'1px solid var(--border)',overflow:'hidden'}}>
+              <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',
+                display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <h3 style={{fontSize:16,fontWeight:600}}>My Donation History</h3>
+                  <p style={{fontSize:12,color:'var(--muted)',marginTop:2}}>{myDonations.length} record{myDonations.length!==1?'s':''} found</p>
+                </div>
+                <button onClick={() => setTab('register')}
+                  style={{padding:'9px 20px',background:'var(--red)',color:'#fff',border:'none',
+                    borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer',
+                    boxShadow:'0 2px 8px rgba(192,57,43,0.3)'}}>
+                  + New Donation
+                </button>
+              </div>
+
+              {myDonations.length === 0 ? (
+                <div style={{padding:'64px',textAlign:'center',color:'var(--muted)'}}>
+                  <div style={{fontSize:48,marginBottom:16}}>🩸</div>
+                  <p style={{fontWeight:600,fontSize:16,marginBottom:6,color:'#555'}}>No donations yet</p>
+                  <p style={{fontSize:13}}>Register your first donation to get started and save lives.</p>
+                  <button onClick={() => setTab('register')}
+                    style={{marginTop:20,padding:'10px 24px',background:'var(--red)',color:'#fff',
+                      border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                    Register Now →
+                  </button>
+                </div>
+              ) : (
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse'}}>
+                    <thead>
+                      <tr style={{background:'#faf7f4'}}>
+                        {['#','Date','Blood Type','Units','Contact','Status'].map(h => (
+                          <th key={h} style={{padding:'13px 22px',textAlign:'left',fontSize:11,
+                            fontWeight:600,color:'var(--muted)',letterSpacing:.6}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {myDonations.map((d, i) => (
+                        <tr key={d.id} style={{borderTop:'1px solid var(--border)',
+                          background:i%2===0?'#fff':'#fdfcfb',transition:'background .15s'}}
+                          onMouseOver={e => e.currentTarget.style.background='#faf5f5'}
+                          onMouseOut={e => e.currentTarget.style.background=i%2===0?'#fff':'#fdfcfb'}>
+                          <td style={{padding:'14px 22px',fontSize:13,color:'var(--muted)'}}>{i+1}</td>
+                          <td style={{padding:'14px 22px',fontSize:13,fontWeight:500}}>{d.date}</td>
+                          <td style={{padding:'14px 22px'}}>
+                            <span style={{background:'var(--red-light)',color:'var(--red)',
+                              padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:700}}>
+                              {d.bloodType}
+                            </span>
+                          </td>
+                          <td style={{padding:'14px 22px',fontSize:13}}>{d.units} unit{d.units>1?'s':''}</td>
+                          <td style={{padding:'14px 22px',fontSize:13}}>{d.contact}</td>
+                          <td style={{padding:'14px 22px'}}>
+                            <span className={`badge badge-${d.status}`}>
+                              {d.status==='approved'?'✓ ':d.status==='rejected'?'✕ ':'● '}
+                              {d.status.charAt(0).toUpperCase()+d.status.slice(1)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {tab === 'register' && (
+          <div style={{maxWidth:540,margin:'0 auto'}}>
+            <div style={{marginBottom:28}}>
+              <h2 style={{fontFamily:'Playfair Display',fontSize:26,marginBottom:6}}>Register Donation</h2>
+              <p style={{color:'var(--muted)',fontSize:14}}>Fill in the details to submit your donation request for admin approval.</p>
+            </div>
+
+            {submitted ? (
+              <div style={{background:'var(--green-light)',border:'1px solid #b7e4c7',borderRadius:16,
+                padding:'48px',textAlign:'center'}}>
+                <div style={{fontSize:52,marginBottom:16}}>✅</div>
+                <p style={{color:'var(--green)',fontWeight:700,fontSize:18,marginBottom:8}}>
+                  Donation Registered!
+                </p>
+                <p style={{color:'var(--muted)',fontSize:14}}>
+                  Your request is pending admin approval. You'll see it in your dashboard.
+                </p>
+              </div>
+            ) : (
+              <div style={{background:'#fff',borderRadius:16,border:'1px solid var(--border)',padding:'32px'}}>
+                <Field label="Blood Type">
+                  <select value={form.bloodType} onChange={e => setForm({...form, bloodType:e.target.value})}
+                    style={{width:'100%',padding:'12px 14px',border:'1.5px solid var(--border)',
+                      borderRadius:10,fontSize:14,outline:'none',background:'#fff'}}>
+                    {BLOOD_TYPES.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </Field>
+
+                <Field label="Units to Donate">
+                  <select value={form.units} onChange={e => setForm({...form, units:e.target.value})}
+                    style={{width:'100%',padding:'12px 14px',border:'1.5px solid var(--border)',
+                      borderRadius:10,fontSize:14,outline:'none',background:'#fff'}}>
+                    {[1,2,3].map(n => <option key={n} value={n}>{n} unit{n>1?'s':''} (~{n*450}ml)</option>)}
+                  </select>
+                </Field>
+
+                <Field label="Donation Date">
+                  <input type="date" value={form.date} onChange={e => setForm({...form, date:e.target.value})}
+                    style={{width:'100%',padding:'12px 14px',border:'1.5px solid var(--border)',
+                      borderRadius:10,fontSize:14,outline:'none'}}/>
+                </Field>
+
+                <Field label="Contact Number">
+                  <input type="tel" value={form.contact} onChange={e => setForm({...form, contact:e.target.value})}
+                    placeholder="10-digit mobile number"
+                    style={{width:'100%',padding:'12px 14px',border:'1.5px solid var(--border)',
+                      borderRadius:10,fontSize:14,outline:'none'}}/>
+                </Field>
+
+                {formErr && (
+                  <div style={{background:'var(--red-light)',border:'1px solid #f5c6c6',borderRadius:10,
+                    padding:'10px 14px',marginBottom:16,color:'var(--red)',fontSize:13}}>
+                    ⚠️ {formErr}
+                  </div>
+                )}
+
+                <div style={{display:'flex',gap:12,marginTop:8}}>
+                  <button onClick={() => setTab('dashboard')}
+                    style={{flex:1,padding:'13px',background:'var(--surface)',border:'none',
+                      borderRadius:11,fontSize:14,fontWeight:500,cursor:'pointer',color:'#555'}}>
+                    Cancel
+                  </button>
+                  <button onClick={submitDonation}
+                    style={{flex:2,padding:'13px',background:'var(--red)',color:'#fff',border:'none',
+                      borderRadius:11,fontSize:14,fontWeight:600,cursor:'pointer',
+                      boxShadow:'0 4px 14px rgba(192,57,43,0.3)'}}>
+                    Submit Donation Request 🩸
+                  </button>
+                </div>
+
+                <p style={{textAlign:'center',fontSize:11,color:'var(--muted)',marginTop:16}}>
+                  Your request will be reviewed by the admin before approval.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── ADMIN APP ── */
+function AdminApp({user, donations, setDonations, onLogout}) {
+  const [tab, setTab] = useState('dashboard');
+  const [filter, setFilter] = useState('all');
+
+  const stats = {
+    total: donations.length,
+    approved: donations.filter(d => d.status==='approved').length,
+    pending: donations.filter(d => d.status==='pending').length,
+    rejected: donations.filter(d => d.status==='rejected').length,
+    units: donations.filter(d => d.status==='approved').reduce((s,d) => s+d.units, 0),
+  };
+
+  const bloodInventory = BLOOD_TYPES.map(bt => ({
+    type: bt,
+    units: donations.filter(d => d.bloodType===bt && d.status==='approved').reduce((s,d) => s+d.units, 0)
+  }));
+
+  function setStatus(id, status) {
+    setDonations(prev => prev.map(d => d.id===id ? {...d, status} : d));
+  }
+
+  const filtered = donations.filter(d => filter==='all' ? true : d.status===filter);
+
+  const tabs = [
+    {id:'dashboard', icon:'📊', label:'Dashboard'},
+    {id:'requests', icon:'📋', label:'Requests'},
+  ];
+
+  return (
+    <div style={{minHeight:'100vh',background:'#f8f4f0'}}>
+      <TopBar user={user} onLogout={onLogout} tabs={tabs} activeTab={tab}
+        setTab={setTab} pendingCount={stats.pending}/>
+
+      <div style={{maxWidth:1200,margin:'0 auto',padding:'32px 28px 60px'}}>
+        {tab === 'dashboard' && (
+          <>
+            <div style={{marginBottom:28}}>
+              <h2 style={{fontFamily:'Playfair Display',fontSize:26,marginBottom:6}}>Admin Dashboard</h2>
+              <p style={{color:'var(--muted)',fontSize:14}}>Complete blood bank overview and inventory management.</p>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:32}}>
+              <StatCard icon="💉" label="Total Requests" value={stats.total} color="var(--red)"/>
+              <StatCard icon="✅" label="Approved" value={stats.approved} color="var(--green)"/>
+              <StatCard icon="⏳" label="Pending" value={stats.pending} color="var(--amber)"/>
+              <StatCard icon="🩸" label="Units Available" value={stats.units} color="var(--red)"/>
+            </div>
+
+            <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>Blood Type Inventory</h3>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:32}}>
+              {bloodInventory.map(b => {
+                const lvl = b.units===0?'empty':b.units<3?'low':'ok';
+                const colors = {empty:['var(--red-light)','var(--red)'],low:['var(--amber-light)','var(--amber)'],ok:['var(--green-light)','var(--green)']};
+                return (
+                  <div key={b.type} style={{background:'#fff',borderRadius:14,border:'1px solid var(--border)',
+                    padding:'20px',textAlign:'center'}}>
+                    <span style={{background:'var(--red-light)',color:'var(--red)',padding:'5px 14px',
+                      borderRadius:20,fontSize:14,fontWeight:700,display:'inline-block',marginBottom:12}}>
+                      {b.type}
+                    </span>
+                    <p style={{fontSize:28,fontWeight:700,color:colors[lvl][1],lineHeight:1}}>{b.units}</p>
+                    <p style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>units</p>
+                    <span style={{background:colors[lvl][0],color:colors[lvl][1],fontSize:10,
+                      fontWeight:700,padding:'2px 9px',borderRadius:20,letterSpacing:.5}}>
+                      {lvl==='empty'?'EMPTY':lvl==='low'?'LOW STOCK':'IN STOCK'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{background:'#fff',borderRadius:16,border:'1px solid var(--border)',overflow:'hidden'}}>
+              <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',
+                display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <h3 style={{fontSize:16,fontWeight:600}}>Pending Requests</h3>
+                  <p style={{fontSize:12,color:'var(--muted)',marginTop:2}}>Requires your attention</p>
+                </div>
+                <button onClick={() => setTab('requests')}
+                  style={{padding:'9px 20px',background:'var(--red)',color:'#fff',border:'none',
+                    borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                  View All Requests
+                </button>
+              </div>
+
+              {donations.filter(d => d.status==='pending').length === 0 ? (
+                <div style={{padding:'48px',textAlign:'center',color:'var(--muted)'}}>
+                  <div style={{fontSize:40,marginBottom:12}}>🎉</div>
+                  <p style={{fontWeight:600,color:'#555'}}>All caught up!</p>
+                  <p style={{fontSize:13,marginTop:4}}>No pending requests at this time.</p>
+                </div>
+              ) : (
+                donations.filter(d => d.status==='pending').map((d, i) => (
+                  <div key={d.id} style={{padding:'18px 24px',
+                    borderTop:i>0?'1px solid var(--border)':'none',
+                    display:'flex',alignItems:'center',gap:16,
+                    transition:'background .15s'}}
+                    onMouseOver={e => e.currentTarget.style.background='#faf7f4'}
+                    onMouseOut={e => e.currentTarget.style.background='#fff'}>
+                    <div style={{width:44,height:44,borderRadius:'50%',background:'var(--red-light)',
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontWeight:700,fontSize:15,color:'var(--red)',flexShrink:0}}>
+                      {d.name[0]}
+                    </div>
+                    <div style={{flex:1}}>
+                      <p style={{fontWeight:600,fontSize:14}}>{d.name}</p>
+                      <p style={{fontSize:12,color:'var(--muted)',marginTop:2}}>
+                        {d.bloodType} &nbsp;·&nbsp; {d.units} unit{d.units>1?'s':''} &nbsp;·&nbsp; {d.date} &nbsp;·&nbsp; {d.contact}
+                      </p>
+                    </div>
+                    <div style={{display:'flex',gap:10}}>
+                      <button onClick={() => setStatus(d.id,'approved')}
+                        style={{padding:'8px 18px',background:'var(--green-light)',color:'var(--green)',
+                          border:'1.5px solid #b7e4c7',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                        ✓ Approve
+                      </button>
+                      <button onClick={() => setStatus(d.id,'rejected')}
+                        style={{padding:'8px 18px',background:'var(--red-light)',color:'var(--red)',
+                          border:'1.5px solid #f5c6c6',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                        ✕ Reject
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+
+        {tab === 'requests' && (
+          <>
+            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:28}}>
+              <div>
+                <h2 style={{fontFamily:'Playfair Display',fontSize:26,marginBottom:6}}>All Donor Requests</h2>
+                <p style={{color:'var(--muted)',fontSize:14}}>Review, approve or reject donation requests from donors.</p>
+              </div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {['all','pending','approved','rejected'].map(f => (
+                  <button key={f} onClick={() => setFilter(f)}
+                    style={{padding:'8px 18px',borderRadius:9,
+                      border:`1.5px solid ${filter===f?'var(--red)':'var(--border)'}`,
+                      background:filter===f?'var(--red)':'#fff',
+                      color:filter===f?'#fff':'var(--muted)',
+                      fontSize:12,fontWeight:filter===f?600:400,cursor:'pointer',
+                      transition:'all .2s',display:'flex',alignItems:'center',gap:6}}>
+                    {f.charAt(0).toUpperCase()+f.slice(1)}
+                    <span style={{background:filter===f?'rgba(255,255,255,0.25)':'var(--surface)',
+                      borderRadius:20,fontSize:10,padding:'1px 7px',fontWeight:700,
+                      color:filter===f?'#fff':'var(--muted)'}}>
+                      {f==='all'?stats.total:f==='pending'?stats.pending:f==='approved'?stats.approved:stats.rejected}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{background:'#fff',borderRadius:16,border:'1px solid var(--border)',overflow:'hidden'}}>
+              {filtered.length === 0 ? (
+                <div style={{padding:'64px',textAlign:'center',color:'var(--muted)'}}>
+                  <div style={{fontSize:40,marginBottom:12}}>📋</div>
+                  <p style={{fontWeight:600,color:'#555'}}>No {filter==='all'?'':filter} requests found.</p>
+                </div>
+              ) : (
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse'}}>
+                    <thead>
+                      <tr style={{background:'#faf7f4'}}>
+                        {['#','Donor','Blood Type','Units','Date','Contact','Status','Actions'].map(h => (
+                          <th key={h} style={{padding:'14px 20px',textAlign:'left',fontSize:11,
+                            fontWeight:600,color:'var(--muted)',letterSpacing:.6,whiteSpace:'nowrap'}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((d, i) => (
+                        <tr key={d.id} style={{borderTop:'1px solid var(--border)',
+                          background:i%2===0?'#fff':'#fdfcfb',transition:'background .15s'}}
+                          onMouseOver={e => e.currentTarget.style.background='#faf5f5'}
+                          onMouseOut={e => e.currentTarget.style.background=i%2===0?'#fff':'#fdfcfb'}>
+                          <td style={{padding:'14px 20px',fontSize:13,color:'var(--muted)'}}>{i+1}</td>
+                          <td style={{padding:'14px 20px'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:10}}>
+                              <div style={{width:34,height:34,borderRadius:'50%',background:'var(--red-light)',
+                                display:'flex',alignItems:'center',justifyContent:'center',
+                                fontWeight:700,fontSize:13,color:'var(--red)',flexShrink:0}}>
+                                {d.name[0]}
+                              </div>
+                              <span style={{fontSize:13,fontWeight:500}}>{d.name}</span>
+                            </div>
+                          </td>
+                          <td style={{padding:'14px 20px'}}>
+                            <span style={{background:'var(--red-light)',color:'var(--red)',
+                              padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:700}}>
+                              {d.bloodType}
+                            </span>
+                          </td>
+                          <td style={{padding:'14px 20px',fontSize:13}}>{d.units}</td>
+                          <td style={{padding:'14px 20px',fontSize:13,whiteSpace:'nowrap'}}>{d.date}</td>
+                          <td style={{padding:'14px 20px',fontSize:13}}>{d.contact}</td>
+                          <td style={{padding:'14px 20px'}}>
+                            <span className={`badge badge-${d.status}`}>
+                              {d.status==='approved'?'✓ ':d.status==='rejected'?'✕ ':'● '}
+                              {d.status.charAt(0).toUpperCase()+d.status.slice(1)}
+                            </span>
+                          </td>
+                          <td style={{padding:'14px 20px'}}>
+                            {d.status === 'pending' ? (
+                              <div style={{display:'flex',gap:8}}>
+                                <button onClick={() => setStatus(d.id,'approved')}
+                                  style={{padding:'6px 14px',background:'var(--green-light)',
+                                    color:'var(--green)',border:'1.5px solid #b7e4c7',
+                                    borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>
+                                  ✓ Approve
+                                </button>
+                                <button onClick={() => setStatus(d.id,'rejected')}
+                                  style={{padding:'6px 14px',background:'var(--red-light)',
+                                    color:'var(--red)',border:'1.5px solid #f5c6c6',
+                                    borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>
+                                  ✕ Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{fontSize:12,color:'var(--muted)'}}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <p style={{textAlign:'center',marginTop:20,fontSize:12,color:'var(--muted)'}}>
+              Showing {filtered.length} of {donations.length} total requests
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── ROOT ── */
+function App() {
+  const [user, setUser] = useState(null);
+  const [donations, setDonations] = useState(initialDonations);
+
+  if (!user) return <AuthScreen onLogin={setUser}/>;
+
+  return user.role === 'user'
+    ? <UserApp user={user} donations={donations} setDonations={setDonations} onLogout={() => setUser(null)}/>
+    : <AdminApp user={user} donations={donations} setDonations={setDonations} onLogout={() => setUser(null)}/>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
